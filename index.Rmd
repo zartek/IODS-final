@@ -1,8 +1,15 @@
 ---
 title: "Final assignement"
+author: "Mikael Jumppanen"
 output:
-  html_document: default
-  html_notebook: default
+  html_document:
+    theme: spacelab
+    toc: true
+    toc_depth: 2
+    fig_caption: true
+    fig_width: 6
+    fig_height: 4
+    code_folding: hide
 ---
 
 This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
