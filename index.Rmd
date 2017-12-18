@@ -12,14 +12,227 @@ output:
     code_folding: hide
 ---
 
-This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+# Abstract
 
-Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+# Introduction    
 
-```{r}
-plot(cars)
+Aim of the data analysis study is to analalyze student alohol consumption study again. And try to get general view of the data by using MCA, which reveals which factors group together. Primary aim is to determine which factors affect final grades of the student by using linear regression for uncategorized grade variable and LDA for categorized grade variable. I decided to keep dataset separete because I hypothesized that there is difference between those who perform well in math and portuguese.       
+
+
+# Dataset 
+
+Dataset consist of two questionaries made for portuguese students who were studying either math or portuguese. During the dataset preparation I scaled all the numerical variables and created new categorical variables: math_grade and por_grade. 
+
+
+
+# Visual exploration of the datasets      
+
+I hypothise that generally women would perform better in language and men in maths. Let's see that is really the case. It would be also interesting to see if there are some other differences between the data sets.     
+
+**Mathematics data**     
+
+```{r, message=TRUE, warning=FALSE}
+library("GGally")
+library("ggplot2")
+library("dplyr")
+
+mathData <-read.csv("math_data.csv")
+porData <- read.csv("por_data.csv")
+
+
+select_these_part1 <- c("age","Medu", "Fedu", "traveltime", "studytime", "failures", "famrel", "sex", "G3")
+
+select_these_part2 <- c("freetime", "goout", "health", "absences", "G3", "sex", "alc_use")
+
+numericMath1 <- mathData %>% select(one_of(select_these_part1))
+
+numericMath2 <- mathData %>% select(one_of(select_these_part2))
+
+ggpairs(numericMath1, mapping = aes(col=sex, alpha=0.3), lower = list(combo = wrap("facethist", bins = 20)))
+
+ggpairs(numericMath2, mapping = aes(col=sex, alpha=0.3), lower = list(combo = wrap("facethist", bins = 20)))
+
+```
+        
+It seems that men grade's are more succestible to external factors like going out and drinking of alchol. Interestingly parent's education seem to affect quite a lot to mathematics grade. Even more that time spent for studying. It seems also that men that have past failures tend to get easier worse grade than women.         
+  
+        
+**Portuguese data**     
+```{r, message=TRUE, warning=FALSE}
+
+
+
+glimpse(porData)
+
+select_these_part1 <- c("age","Medu", "Fedu", "traveltime", "studytime", "failures", "famrel", "sex", "G3")
+
+select_these_part2 <- c("freetime", "goout", "health", "absences", "G3", "sex", "alc_use")
+
+numericMath1 <- porData %>% select(one_of(select_these_part1))
+
+numericMath2 <- porData %>% select(one_of(select_these_part2))
+
+ggpairs(numericMath1, mapping = aes(col=sex, alpha=0.3), lower = list(combo = wrap("facethist", bins = 20)))
+
+ggpairs(numericMath2, mapping = aes(col=sex, alpha=0.3), lower = list(combo = wrap("facethist", bins = 20)))
+
 ```
 
-Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+It seem that for studying portuguese parents education affect even more than for studying maths. Interestingly there seem to be stronger correlation in time spent for studying vs. grade in portuguese. 
 
-When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+
+# Data analysis 
+
+Let's first make MCA based on **Father's job**, **famsup**, **internet**, **romantic** and **por_grade** variables   
+
+```{r, warning=FALSE}
+library("FactoMineR")
+
+
+
+select_these <- c("F", "famsup", "internet", "romantic", "por_grade", "Fjob", "sex")
+     
+porFactor <- porData %>% select_if(is.factor) %>% select(one_of(select_these))
+mca <- MCA(porFactor, graph = F)
+
+# visualize MCA
+plot(mca, invisible=c("ind"), habillage="quali")
+```
+
+It seems that having internet and teacher dad or on health sector would help to get better grades. Family support might also differentiate med_low grade from med_high
+
+Let's check how the plot looks like with mother's education.
+
+```{r, warning=FALSE}
+library("FactoMineR")
+
+
+
+select_these <- c("F", "famsup", "internet", "romantic", "por_grade", "Mjob", "sex")
+     
+porFactor <- porData %>% select_if(is.factor) %>% select(one_of(select_these))
+mca <- MCA(porFactor, graph = F)
+
+# visualize MCA
+plot(mca, invisible=c("ind"), habillage="quali")
+```
+
+
+There seem to be clear indication how mother's education is affecting grades. Might be that high grades and mother in health sector are linked together. It also looks like females are in romantic relatioships at that age. 
+
+
+Next we try to fit linear regression model to predict final grade variable(**G3**)
+
+**Portuguese data**
+
+```{r, warning=FALSE}
+my_model <- lm(formula = G3 ~ alc_use + absences + goout + Medu + Fedu + failures + studytime, data= porData)
+
+summary(my_model)
+```
+
+It seems that past **failures**, **studytime**, **alc_use** and **Mother_education** can be used to predict final grade. But still model explains only 23% of the variation. 
+
+Let's build model again without other variables:     
+
+```{r, warning=FALSE}
+my_model <- lm(formula = G3 ~ alc_use + Medu + failures + studytime, data= porData)
+
+summary(my_model)
+
+plot(my_model, which=c(1,2,5))
+```
+
+Let's check math data: 
+
+```{r, warning=FALSE}
+my_model <- lm(formula = G3 ~ alc_use + absences + goout + Medu + Fedu + failures + studytime, data= mathData)
+
+summary(my_model)
+
+plot(my_model, which=c(1,2,5))
+```
+
+
+It seems that when studyin maths study time doesn't linearly correlate with final grade.  Let's fit model again with only significant values.
+
+```{r, warning=FALSE}
+my_model <- lm(formula = G3 ~ goout + Medu + failures, data= mathData)
+
+summary(my_model)
+plot(my_model, which=c(1,2,5))
+```
+
+
+It seems that also here mother's education have positive impact on the final grade of the student. 
+
+
+## Model diagnostics     
+
+It seems that normal distribution asumption is incorrect based on residuals vs fitted plots. Residual vs Leverage looks quite good so no single value has large impact in the model. There seems to be problem with high and low values in the model based on Normal Q-Q plots. 
+
+# LDA
+
+Finally we want to try LDA for categorized grade variables.  
+
+```{r, warning=FALSE}
+library("MASS")   
+
+
+lda.fit <- lda(por_grade ~., data =porData)
+lda.fit
+
+# the function for lda biplot arrows
+lda.arrows <- function(x, myscale = 1, arrow_heads = 0.1, color = "red", tex = 0.75, choices = c(1,2)){
+  heads <- coef(x)
+  arrows(x0 = 0, y0 = 0, 
+         x1 = myscale * heads[,choices[1]], 
+         y1 = myscale * heads[,choices[2]], col=color, length = arrow_heads)
+  text(myscale * heads[,choices], labels = row.names(heads), 
+       cex = tex, col=color, pos=3)
+}
+
+# target classes as numeric
+classes <- as.numeric(porData$por_grade)
+
+# plot the lda results
+plot(lda.fit, dimen = 2, col =classes, pch=classes)
+lda.arrows(lda.fit, myscale = 5)
+```
+
+It seems that coefficient which are mostly discriminanting high grades from low are: Father's job at health sector, school support 
+
+Let's check same thing for maths:   
+
+```{r, warning=FALSE}
+library("MASS")   
+
+
+lda.fit <- lda(math_grade ~., data =mathData)
+lda.fit
+
+# the function for lda biplot arrows
+lda.arrows <- function(x, myscale = 1, arrow_heads = 0.1, color = "red", tex = 0.75, choices = c(1,2)){
+  heads <- coef(x)
+  arrows(x0 = 0, y0 = 0, 
+         x1 = myscale * heads[,choices[1]], 
+         y1 = myscale * heads[,choices[2]], col=color, length = arrow_heads)
+  text(myscale * heads[,choices], labels = row.names(heads), 
+       cex = tex, col=color, pos=3)
+}
+
+# target classes as numeric
+classes <- as.numeric(mathData$math_grade)
+
+# plot the lda results
+plot(lda.fit, dimen = 2, col =classes, pch=classes)
+lda.arrows(lda.fit, myscale = 3)
+```
+
+Based on this analysis it is not so clear which factors affect better math grades. 
+
+
+# Conclusion and discussion
+
+Based on MCA plot having a family support seem to be really important for students to get better grades. It also helps if your parents are working on a health sector. Intrestingly study time is only important factor when you are studying language based on linear regression models.   
